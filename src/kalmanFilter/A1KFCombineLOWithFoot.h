@@ -55,21 +55,22 @@ private:
                  Eigen::Matrix<double, 3, 1> w,
                  Eigen::Matrix<double, 12, 1> joint_ang,
                  Eigen::Matrix<double, 12, 1> joint_vel);
-    Eigen::Matrix<double, EKF_STATE_SIZE, 1> curr_state;
-    Eigen::Matrix<double, EKF_STATE_SIZE, EKF_STATE_SIZE> curr_covariance;
 
-    Eigen::Matrix<double, EKF_STATE_SIZE, 1> x01;                           // intermediate state
-    Eigen::Matrix<double, EKF_STATE_SIZE, EKF_STATE_SIZE> process_jacobian; // intermediate covariance
-    Eigen::Matrix<double, EKF_STATE_SIZE, EKF_STATE_SIZE> P01;              // intermediate covariance
+    Eigen::Matrix<double, EKF_STATE_SIZE, 1> curr_state; // 状态向量
+    Eigen::Matrix<double, EKF_STATE_SIZE, EKF_STATE_SIZE> curr_covariance; // 状态协方差矩阵
 
-    Eigen::Matrix<double, OBSERVATION_SIZE, 1> measurement;
-    Eigen::Matrix<double, OBSERVATION_SIZE, EKF_STATE_SIZE> measurement_jacobian;
+    Eigen::Matrix<double, EKF_STATE_SIZE, 1> x01;                           // 中间状态向量 
+    Eigen::Matrix<double, EKF_STATE_SIZE, EKF_STATE_SIZE> process_jacobian; // 中间状态协方差雅可比矩阵 
+    Eigen::Matrix<double, EKF_STATE_SIZE, EKF_STATE_SIZE> P01;              // 中间状态协方差矩阵
 
-    Eigen::Matrix<double, CONTROL_SIZE, 1> prev_ctrl;
-    Eigen::Matrix<double, CONTROL_SIZE, 1> curr_ctrl;
+    Eigen::Matrix<double, OBSERVATION_SIZE, 1> measurement; // 测量向量
+    Eigen::Matrix<double, OBSERVATION_SIZE, EKF_STATE_SIZE> measurement_jacobian; // 测量雅可比矩阵
 
-    Eigen::Matrix<double, EKF_STATE_SIZE, EKF_STATE_SIZE> process_noise;
-    Eigen::Matrix<double, OBSERVATION_SIZE, OBSERVATION_SIZE> measure_noise;
+    Eigen::Matrix<double, CONTROL_SIZE, 1> prev_ctrl; // 上一次控制信号
+    Eigen::Matrix<double, CONTROL_SIZE, 1> curr_ctrl; // 当前控制信号
+
+    Eigen::Matrix<double, EKF_STATE_SIZE, EKF_STATE_SIZE> process_noise; // 过程噪声矩阵
+    Eigen::Matrix<double, OBSERVATION_SIZE, OBSERVATION_SIZE> measure_noise; // 测量噪声矩阵
 
     // optitrack related
     Eigen::Matrix<double, OPTI_OBSERVATION_SIZE, EKF_STATE_SIZE> opti_jacobian;

@@ -46,7 +46,7 @@ v_n_term3_distance_rescale: 1.0e-3
 v_n_final_ratio: 0.1
 
 # leg kinematics parameter
-lower_leg_length: 0.21 #腿部下肢长度
+lower_leg_length: 0.25 #腿部下肢长度
 
 
 #Multiple thread support

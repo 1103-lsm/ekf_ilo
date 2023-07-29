@@ -5,6 +5,7 @@
     <include file="$(find ilo)/launch/hardware_aliengo/hardware_aliengo_ilo.launch" />
     
     <node pkg="rviz" type="rviz" name="rviz" args = "-d $(find ilo)/config/rviz/truth_path_config.rviz"/>
+    <!-- <node pkg="rviz" type="rviz" name="rviz"/> -->
     
     <!-- 这是一个参数定义，它定义了一个名为node_start_delay的参数，并设置了默认值为1.0。这个参数用于延迟启动后面的节点，以便在启动之前等待一段时间 -->
     <arg name="node_start_delay" default="1.0" />  

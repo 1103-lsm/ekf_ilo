@@ -14,6 +14,7 @@
 
 #include <geometry_msgs/PoseStamped.h>
 #include <geometry_msgs/TwistStamped.h>
+#include <tf2/LinearMath/Quaternion.h>
 
 #include "kalmanFilter/A1KFCombineLOWithFoot.h"
 
@@ -27,7 +28,8 @@ bool first_sensor_received = false;
 // debug print filtered data
 ros::Publisher filterd_imu_pub;
 ros::Publisher filterd_joint_pub;
-ros::Publisher filterd_pos_pub;
+ros::Publisher filterd_odom_pub;
+ros::Publisher filterd_path_pub;
 
 ros::Publisher pub_truth_path;
 ros::Publisher pub_truth_odometry;
@@ -35,6 +37,9 @@ ros::Publisher pub_truth_odometry;
 // truth pose
 nav_msgs::Path truth_path;
 nav_msgs::Odometry truth_odometry;
+
+nav_msgs::Path filterd_path;
+nav_msgs::Odometry filterd_pos_msg;
 
 void sensor_callback(const sensor_msgs::Imu::ConstPtr &imu_msg, const sensor_msgs::JointState::ConstPtr &joint_msg);
 void geometry_callback(const geometry_msgs::PoseStamped::ConstPtr& poseMsg, const geometry_msgs::TwistStamped::ConstPtr& twistMsg);
@@ -84,9 +89,11 @@ int main(int argc, char *argv[])
     /********************************************************************************************************************************/
 
     /* publishers */
-    filterd_imu_pub = n.advertise<sensor_msgs::Imu>("/a1_filterd_imu", 30);
-    filterd_joint_pub = n.advertise<sensor_msgs::JointState>("/a1_filterd_joint", 30);
-    filterd_pos_pub = n.advertise<nav_msgs::Odometry>("/a1_filterd_pos", 30);
+    // filterd_imu_pub = n.advertise<sensor_msgs::Imu>("/a1_filterd_imu", 30);
+    // filterd_joint_pub = n.advertise<sensor_msgs::JointState>("/a1_filterd_joint", 30);
+    filterd_path_pub = n.advertise<nav_msgs::Path>("/a1_filterd_path", 1000);
+    filterd_odom_pub = n.advertise<nav_msgs::Odometry>("/a1_filterd_odom", 1000);
+
     // registerPub(n);
 
     pub_truth_path = n.advertise<nav_msgs::Path>("truth_path", 1000);
@@ -98,8 +105,6 @@ int main(int argc, char *argv[])
     return 0;
 }
 
-
-bool first_sensor_received = false;
 void sensor_callback(const sensor_msgs::Imu::ConstPtr& imu_msg, const sensor_msgs::JointState::ConstPtr& joint_msg) 
 {
     // std::cout<<"sensor_callback"<<std::endl;
@@ -108,17 +113,43 @@ void sensor_callback(const sensor_msgs::Imu::ConstPtr& imu_msg, const sensor_msg
     // assemble sensor data
     Eigen::Vector3d acc = Eigen::Vector3d(imu_msg->linear_acceleration.x, imu_msg->linear_acceleration.y, imu_msg->linear_acceleration.z);
     Eigen::Vector3d ang_vel = Eigen::Vector3d(imu_msg->angular_velocity.x, imu_msg->angular_velocity.y, imu_msg->angular_velocity.z);
-
-    Eigen::Matrix<double, NUM_DOF,1> joint_pos;
+    // leg order: 0-FL  1-FR  2-RL  3-RR
+    Eigen::Matrix<double, NUM_DOF,1> joint_pos; 
     Eigen::Matrix<double, NUM_DOF,1> joint_vel;
     Eigen::Matrix<double, NUM_LEG,1> plan_contacts;
-    for (int i = 0; i < NUM_DOF; ++i) {
-        joint_pos[i] = joint_msg->position[i];
-        joint_vel[i] = joint_msg->velocity[i];
+
+    // FL
+    for (int i = 0; i < 3; ++i) {
+
+        joint_pos[i] = joint_msg->position[i+3];
+        joint_vel[i] = joint_msg->velocity[i+3];
     }
-    for (int i = 0; i < NUM_LEG; ++i) {
-        plan_contacts[i] = joint_msg->effort[NUM_DOF + i];
+    // FR
+    for (int i = 3; i < 6; ++i) {
+
+        joint_pos[i] = joint_msg->position[i-3];
+        joint_vel[i] = joint_msg->velocity[i-3];
     }
+    // RL
+    for (int i = 6; i < 9; ++i) {
+
+        joint_pos[i] = joint_msg->position[i+3];
+        joint_vel[i] = joint_msg->velocity[i+3];
+    }
+    // FR
+    for (int i = 9; i < 12; ++i) {
+
+        joint_pos[i] = joint_msg->position[i-3];
+        joint_vel[i] = joint_msg->velocity[i-3];
+    }
+    // 
+    plan_contacts[0] = joint_msg->effort[NUM_DOF + 1];
+    plan_contacts[1] = joint_msg->effort[NUM_DOF];
+    plan_contacts[2] = joint_msg->effort[NUM_DOF + 3];
+    plan_contacts[3] = joint_msg->effort[NUM_DOF + 2];
+    // for (int i = 0; i < NUM_LEG; ++i) {
+    //     plan_contacts[i] = joint_msg->effort[NUM_DOF + i];
+    // }
 
     double dt;
     sensor_data.input_imu(acc, ang_vel);
@@ -132,7 +163,7 @@ void sensor_callback(const sensor_msgs::Imu::ConstPtr& imu_msg, const sensor_msg
         curr_t = t;
         sensor_data.input_dt(dt);
         // init the filter using optitrack data, not here
-        // kf.init_filter(data);
+        kf.init_filter(sensor_data);
     } else if ( !kf.is_inited()) {
         // filter may not be inited even after the callback is called multiple times
         dt = t- curr_t;
@@ -147,49 +178,85 @@ void sensor_callback(const sensor_msgs::Imu::ConstPtr& imu_msg, const sensor_msg
     }
     
     // debug print filtered data
-    sensor_msgs::Imu filterd_imu_msg;
-    sensor_msgs::JointState filterd_joint_msg;
-    filterd_imu_msg.header.stamp = ros::Time::now();
-    filterd_imu_msg.linear_acceleration.x = sensor_data.acc[0];
-    filterd_imu_msg.linear_acceleration.y = sensor_data.acc[1];
-    filterd_imu_msg.linear_acceleration.z = sensor_data.acc[2];
+    // sensor_msgs::Imu filterd_imu_msg;
+    // sensor_msgs::JointState filterd_joint_msg;
+    // filterd_imu_msg.header.stamp = ros::Time::now();
+    // filterd_imu_msg.linear_acceleration.x = sensor_data.acc[0];
+    // filterd_imu_msg.linear_acceleration.y = sensor_data.acc[1];
+    // filterd_imu_msg.linear_acceleration.z = sensor_data.acc[2];
 
-    filterd_imu_msg.angular_velocity.x = sensor_data.ang_vel[0];
-    filterd_imu_msg.angular_velocity.y = sensor_data.ang_vel[1];
-    filterd_imu_msg.angular_velocity.z = sensor_data.ang_vel[2];
+    // filterd_imu_msg.angular_velocity.x = sensor_data.ang_vel[0];
+    // filterd_imu_msg.angular_velocity.y = sensor_data.ang_vel[1];
+    // filterd_imu_msg.angular_velocity.z = sensor_data.ang_vel[2];
 
-    filterd_joint_msg.header.stamp = ros::Time::now();
+    // filterd_joint_msg.header.stamp = ros::Time::now();
 
-    filterd_joint_msg.name = {"FL0", "FL1", "FL2",
-                           "FR0", "FR1", "FR2",
-                           "RL0", "RL1", "RL2",
-                           "RR0", "RR1", "RR2",
-                           "FL_foot", "FR_foot", "RL_foot", "RR_foot"};
-    filterd_joint_msg.position.resize(NUM_DOF + NUM_LEG);
-    filterd_joint_msg.velocity.resize(NUM_DOF + NUM_LEG);
-    filterd_joint_msg.effort.resize(NUM_DOF + NUM_LEG);
-    for (int i = 0; i < NUM_DOF; ++i) {
-        filterd_joint_msg.position[i] = sensor_data.joint_pos[i];
-        filterd_joint_msg.velocity[i] = sensor_data.joint_vel[i];
-    }
-    Eigen::Vector4d estimated_contact = kf.get_contacts();
-    for (int i = 0; i < NUM_LEG; ++i) {
-        filterd_joint_msg.velocity[NUM_DOF+i] = estimated_contact[i];
-    }
-    filterd_imu_pub.publish(filterd_imu_msg);
-    filterd_joint_pub.publish(filterd_joint_msg);
+    // filterd_joint_msg.name = {"FL0", "FL1", "FL2",
+    //                        "FR0", "FR1", "FR2",
+    //                        "RL0", "RL1", "RL2",
+    //                        "RR0", "RR1", "RR2",
+    //                        "FL_foot", "FR_foot", "RL_foot", "RR_foot"};
+    // filterd_joint_msg.position.resize(NUM_DOF + NUM_LEG);
+    // filterd_joint_msg.velocity.resize(NUM_DOF + NUM_LEG);
+    // filterd_joint_msg.effort.resize(NUM_DOF + NUM_LEG);
+    // for (int i = 0; i < NUM_DOF; ++i) {
+    //     filterd_joint_msg.position[i] = sensor_data.joint_pos[i];
+    //     filterd_joint_msg.velocity[i] = sensor_data.joint_vel[i];
+    // }
+    // Eigen::Vector4d estimated_contact = kf.get_contacts();
+    // for (int i = 0; i < NUM_LEG; ++i) {
+    //     filterd_joint_msg.velocity[NUM_DOF+i] = estimated_contact[i];
+    // }
+    // filterd_imu_pub.publish(filterd_imu_msg);
+    // filterd_joint_pub.publish(filterd_joint_msg);
+    
 
     Eigen::Matrix<double, EKF_STATE_SIZE,1> kf_state = kf.get_state();
-    nav_msgs::Odometry filterd_pos_msg;
+
+    tf2::Quaternion quat;
+    quat.setRPY(kf_state[6], kf_state[7], kf_state[8]);
+     // Publish filtered path
+    filterd_path.header.stamp = ros::Time::now();
+    filterd_path.header.frame_id = "world"; // Replace with the actual reference coordinate frame name
+
+    geometry_msgs::PoseStamped pose;
+    pose.header.stamp = ros::Time::now();
+
+    // Set the position information of the path point
+    pose.pose.position.x = kf_state[0]; // Replace with the x-coordinate from the Kalman filter
+    pose.pose.position.y = kf_state[1]; // Replace with the y-coordinate from the Kalman filter
+    pose.pose.position.z = kf_state[2]; // Replace with the z-coordinate from the Kalman filter
+    pose.pose.orientation.x = quat.x();
+    pose.pose.orientation.y = quat.y();
+    pose.pose.orientation.z = quat.z();
+    pose.pose.orientation.w = quat.w();
+
+    filterd_path.poses.push_back(pose);
+
+    filterd_path_pub.publish(filterd_path);
+    
+    // Publish filtered odometry
     filterd_pos_msg.header.stamp = ros::Time::now();
-    filterd_pos_msg.pose.pose.position.x = kf_state[0];
-    filterd_pos_msg.pose.pose.position.y = kf_state[1];
-    filterd_pos_msg.pose.pose.position.z = kf_state[2];
+    filterd_pos_msg.header.frame_id = "world";
+    filterd_pos_msg.child_frame_id = "world";
+
     filterd_pos_msg.twist.twist.linear.x = kf_state[3];
     filterd_pos_msg.twist.twist.linear.y = kf_state[4];
     filterd_pos_msg.twist.twist.linear.z = kf_state[5];
 
-    filterd_pos_pub.publish(filterd_pos_msg);
+    filterd_pos_msg.pose.pose = pose.pose;
+
+    // filterd_pos_msg.pose.pose.position.x = kf_state[0];
+    // filterd_pos_msg.pose.pose.position.y = kf_state[1];
+    // filterd_pos_msg.pose.pose.position.z = kf_state[2];
+
+    // filterd_pos_msg.pose.pose.orientation.x = quat.x();
+    // filterd_pos_msg.pose.pose.orientation.y = quat.y();
+    // filterd_pos_msg.pose.pose.orientation.z = quat.z();
+    // filterd_pos_msg.pose.pose.orientation.w = quat.w();
+
+    filterd_odom_pub.publish(filterd_pos_msg);
+
 
     first_sensor_received = true;
     return;
@@ -311,7 +378,7 @@ void sensor_callback(const sensor_msgs::Imu::ConstPtr& imu_msg, const sensor_msg
 //     filterd_pos_msg.twist.twist.linear.y = kf_state[4];
 //     filterd_pos_msg.twist.twist.linear.z = kf_state[5];
 
-//     filterd_pos_pub.publish(filterd_pos_msg);
+//     filterd_odom_pub.publish(filterd_pos_msg);
 
 //     first_sensor_received = true;
 //     return;

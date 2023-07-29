@@ -8,8 +8,7 @@ A1KFCombineLOWithFoot::A1KFCombineLOWithFoot() : A1KF()
     curr_covariance = Eigen::Matrix<double, EKF_STATE_SIZE, EKF_STATE_SIZE>::Identity() * 0.01;
     KF_initialized = false;
     eye3.setIdentity();
-
-    // kinematics related, copy from GazeboA1ROS.cpp
+    
     // leg order: 0-FL  1-FR  2-RL  3-RR
     // 参数修改完毕
     leg_offset_x[0] = 0.2407;
@@ -265,10 +264,10 @@ void A1KFCombineLOWithFoot::update_filter_with_opti(A1SensorData data)
 void A1KFCombineLOWithFoot::load_casadi_functions()
 {
     // load casadi functions
-    process_func = casadi::external("process", "/tmp/casadi_kf_baseline3_process.so");
-    process_jac_func = casadi::external("process_jac", "/tmp/casadi_kf_baseline3_process_jac.so");
-    measure_func = casadi::external("meas", "/tmp/casadi_kf_baseline3_meas.so");
-    measure_jac_func = casadi::external("meas_jac", "/tmp/casadi_kf_baseline3_meas_jac.so");
+    process_func = casadi::external("process", "/home/ray/workspace/ros_workspace/ekf_ilo/src/aliengo/src/kalmanFilter/casadi_lib/casadi_kf_baseline3_process.so");
+    process_jac_func = casadi::external("process_jac", "/home/ray/workspace/ros_workspace/ekf_ilo/src/aliengo/src/kalmanFilter/casadi_lib/casadi_kf_baseline3_process_jac.so");
+    measure_func = casadi::external("meas", "/home/ray/workspace/ros_workspace/ekf_ilo/src/aliengo/src/kalmanFilter/casadi_lib/casadi_kf_baseline3_meas.so");
+    measure_jac_func = casadi::external("meas_jac", "/home/ray/workspace/ros_workspace/ekf_ilo/src/aliengo/src/kalmanFilter/casadi_lib/casadi_kf_baseline3_meas_jac.so");
 }
 
 void A1KFCombineLOWithFoot::process(Eigen::Matrix<double, EKF_STATE_SIZE, 1> state,

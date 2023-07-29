@@ -51,19 +51,19 @@ public:
         for (int i = 0; i < NUM_DOF; ++i)
         {
             this->joint_pos[i] = joint_pos_filter[i].CalculateAverage(joint_pos[i]);
-            // this->joint_vel[i] = joint_vel_filter[i].CalculateAverage(joint_vel[i]);
+            this->joint_vel[i] = joint_vel_filter[i].CalculateAverage(joint_vel[i]);
 
-            if (sgolay_values[i].size() < sgolay_frame)
-            {
-                this->joint_vel[i] = joint_vel_filter[i].CalculateAverage(joint_vel[i]);
-                sgolay_values[i].push_back(joint_pos[i]);
-            }
-            else
-            {
-                sgolay_values[i].pop_front();
-                sgolay_values[i].push_back(joint_pos[i]);
-                this->joint_vel[i] = joint_vel_filter_sgolay[i].filter(sgolay_values[i]) / average_dt;
-            }
+            // if (sgolay_values[i].size() < sgolay_frame)
+            // {
+            //     this->joint_vel[i] = joint_vel_filter[i].CalculateAverage(joint_vel[i]);
+            //     sgolay_values[i].push_back(joint_pos[i]);
+            // }
+            // else
+            // {
+            //     sgolay_values[i].pop_front();
+            //     sgolay_values[i].push_back(joint_pos[i]);
+            //     this->joint_vel[i] = joint_vel_filter_sgolay[i].filter(sgolay_values[i]) / average_dt;
+            // }
         }
         this->plan_contacts = contact;
     }
