@@ -125,6 +125,8 @@ public:
     }
 
     static Eigen::Matrix3d g2R(const Eigen::Vector3d &g);
+    static Eigen::Matrix3d skew(Eigen::Vector3d vec);
+    static Eigen::Vector3d quat_to_euler(Eigen::Quaterniond quat);
     static Eigen::Vector3d lerpGyro(double t, std::vector<std::pair<double, Eigen::Vector3d>> gyroVector);
     static Eigen::Matrix<double, 12, 3> lerpLegSensors(double t, int &starting_idx,
                                                        std::deque<std::pair<double, Vector12d>> jointAngVector,

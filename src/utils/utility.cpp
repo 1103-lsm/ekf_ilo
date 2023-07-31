@@ -21,6 +21,44 @@ Eigen::Matrix3d Utility::g2R(const Eigen::Vector3d &g)
     return R0;
 }
 
+Eigen::Matrix3d Utility::skew(Eigen::Vector3d vec) {
+    Eigen::Matrix3d rst; rst.setZero();
+    rst <<            0, -vec(2),  vec(1),
+            vec(2),             0, -vec(0),
+            -vec(1),  vec(0),             0;
+    return rst;
+
+    
+}
+
+
+Eigen::Vector3d Utility::quat_to_euler(Eigen::Quaterniond quat) {
+    Eigen::Vector3d rst;
+
+    // order https://github.com/libigl/eigen/blob/master/Eigen/src/Geometry/Quaternion.h
+    Eigen::Matrix<double, 4, 1> coeff = quat.coeffs();
+    double x = coeff(0);
+    double y = coeff(1);
+    double z = coeff(2);
+    double w = coeff(3);
+
+    double y_sqr = y*y;
+
+    double t0 = +2.0 * (w * x + y * z);
+    double t1 = +1.0 - 2.0 * (x * x + y_sqr);
+
+    rst[0] = atan2(t0, t1);
+
+    double t2 = +2.0 * (w * y - z * x);
+    t2 = t2 > +1.0 ? +1.0 : t2;
+    t2 = t2 < -1.0 ? -1.0 : t2;
+    rst[1] = asin(t2);
+
+    double t3 = +2.0 * (w * z + x * y);
+    double t4 = +1.0 - 2.0 * (y_sqr + z * z);
+    rst[2] = atan2(t3, t4);
+    return rst;
+}
 Eigen::Vector3d Utility::lerpGyro(double t, std::vector<std::pair<double, Eigen::Vector3d>> gyroVector)
 {
     int idx1, idx2;

@@ -19,12 +19,9 @@ find_package(catkin REQUIRED COMPONENTS
 find_package(yaml-cpp REQUIRED)
 # Eigen3
 find_package(Eigen3 REQUIRED)
-# casadi
-find_package(casadi REQUIRED)
 # gram_savitzky_golay
 find_package(gram_savitzky_golay REQUIRED)
-# Ceres
-find_package(Ceres REQUIRED)
+
 
 catkin_package()
 
@@ -32,14 +29,13 @@ include_directories(
     ${catkin_INCLUDE_DIRS}
     ${YAML_CPP_INCLUDE_DIR}
     ${EIGEN3_INCLUDE_DIR}
-    ${CERES_INCLUDE_DIRS}
 )
 
 add_library(ilo_lib
-    src/kalmanFilter/A1KF.hpp
-    src/kalmanFilter/A1KFCombineLOWithFoot.cpp
+    src/kalmanFilter/KF.hpp
+    src/kalmanFilter/basicEKF.cpp
 
-    src/legKinematics/A1Kinematics.cpp
+    src/legKinematics/kinematics.cpp
 
     src/utils/parameters.cpp
     src/utils/utility.cpp
@@ -49,7 +45,6 @@ add_library(ilo_lib
 target_link_libraries(ilo_lib
     ${YAML_CPP_LIBRARIES}
     ${catkin_LIBRARIES}
-    ${CERES_LIBRARIES}
 )
 
 add_executable(ilo
@@ -58,6 +53,5 @@ add_executable(ilo
 
 target_link_libraries(ilo
     ilo_lib
-    casadi
     gram_savitzky_golay::gram_savitzky_golay
 )
