@@ -5,9 +5,9 @@ BasicEKF::BasicEKF () : A1KF()
     KF_initialized = false;
 }
 
-void BasicEKF::init_filter(SensorData data, Eigen::Vector3d _init_pos) {
+void BasicEKF::init_filter(SensorData data, Eigen::Vector3d _init_pos,Eigen::Quaterniond _init_orientation) {
     KF_initialized = true;
-        // 0-FR  1-FL  2-RR  3-RL
+    // 0-FR  1-FL  2-RR  3-RL
     leg_offset_x[0] = LEG_OFFSET_X;
     leg_offset_x[1] = LEG_OFFSET_X;
     leg_offset_x[2] = -LEG_OFFSET_X;
@@ -35,6 +35,15 @@ void BasicEKF::init_filter(SensorData data, Eigen::Vector3d _init_pos) {
         rho_fix_list.push_back(rho_fix);
         rho_opt_list.push_back(rho_opt);
     }
+
+    // 计算矩阵 B 相对于矩阵 A 的四元数差值
+    Eigen::Quaterniond Q_diff = _init_orientation * data.root_quat.inverse();
+
+    // 将四元数差值转换回旋转矩阵表示
+    rotation_matrix_diff = Q_diff.toRotationMatrix();
+
+    now_orientation = data.root_quat*rotation_matrix_diff;
+    data.root_rot_mat = now_orientation.toRotationMatrix();
 
     // 3x3单位矩阵
     eye3.setIdentity();
@@ -65,10 +74,7 @@ void BasicEKF::init_filter(SensorData data, Eigen::Vector3d _init_pos) {
         R(NUM_LEG*6+i,NUM_LEG*6+i) = SENSOR_NOISE_ZFOOT;                               // height z estimation
     }
 
-    // set A to identity
     A.setIdentity();
-
-    // set B to zero
     B.setZero();
 
     // 后验估计协方差矩阵初始化
@@ -78,7 +84,7 @@ void BasicEKF::init_filter(SensorData data, Eigen::Vector3d _init_pos) {
     // 状态后验估计
     x.setZero();
     // 质心位置初始化
-    x.segment<3>(0) = Eigen::Vector3d(0, 0, 0.09);
+    x.segment<3>(0) = _init_pos;
     // 足底位置初始化
     for (int i = 0; i < NUM_LEG; i++)
     {
@@ -88,6 +94,8 @@ void BasicEKF::init_filter(SensorData data, Eigen::Vector3d _init_pos) {
 }
 
 void BasicEKF::update_filter(SensorData data) {
+    now_orientation = data.root_quat*rotation_matrix_diff;
+    data.root_rot_mat = now_orientation.toRotationMatrix();
     // 更新状态转移矩阵和输入矩阵
     A.block<3, 3>(0, 3) = data.dt * eye3;
     B.block<3, 3>(3, 0) = data.dt * eye3;

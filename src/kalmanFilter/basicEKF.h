@@ -28,10 +28,12 @@ class BasicEKF : public A1KF
 {
 public:
     BasicEKF ();
-    void init_filter(SensorData data, Eigen::Vector3d _init_pos = Eigen::Vector3d(0, 0, 0.15));
+    void init_filter(SensorData data, Eigen::Vector3d _init_pos ,Eigen::Quaterniond _init_orientation);
     void update_filter(SensorData data);
 
     Eigen::Matrix<double, EKF_STATE_SIZE, 1> get_state() { return x; }
+
+    Eigen::Quaterniond get_orientation() { return now_orientation; }
 private:
     // state
     // 0 1 2 pos 3 4 5 vel 6 7 8 foot pos FR 9 10 11 foot pos FL 12 13 14 foot pos RR 15 16 17 foot pos RL
@@ -65,7 +67,9 @@ private:
     Eigen::Matrix<double, MEAS_SIZE, MEAS_SIZE> S; // 创新（或预拟合残差）协方差 Innovation (or pre-fit residual) covariance
     Eigen::Matrix<double, EKF_STATE_SIZE, MEAS_SIZE> K; // 卡尔曼增益 
 
-
+    Eigen::Matrix3d rotation_matrix_diff;
+    Eigen::Quaterniond now_orientation;
+    
     bool assume_flat_ground = false;
 
     Kinematics kinematics;

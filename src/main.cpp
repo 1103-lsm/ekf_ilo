@@ -87,8 +87,8 @@ int main(int argc, char *argv[])
     /* publishers */
     // filterd_imu_pub = n.advertise<sensor_msgs::Imu>("/a1_filterd_imu", 30);
     // filterd_joint_pub = n.advertise<sensor_msgs::JointState>("/a1_filterd_joint", 30);
-    filterd_path_pub = n.advertise<nav_msgs::Path>("/a1_filterd_path", 1000);
-    filterd_odom_pub = n.advertise<nav_msgs::Odometry>("/a1_filterd_odom", 1000);
+    filterd_path_pub = n.advertise<nav_msgs::Path>("/filterd_path", 1000);
+    filterd_odom_pub = n.advertise<nav_msgs::Odometry>("/filterd_odom", 1000);
 
     // registerPub(n);
 
@@ -133,7 +133,6 @@ void sensor_callback(const sensor_msgs::Imu::ConstPtr& imu_msg, const sensor_msg
         dt = 0;
         curr_t = t;
         sensor_data.input_dt(dt);
-        kf.init_filter(sensor_data);
     } else if ( !kf.is_inited()) {
         dt = t- curr_t;
         sensor_data.input_dt(dt);
@@ -145,8 +144,15 @@ void sensor_callback(const sensor_msgs::Imu::ConstPtr& imu_msg, const sensor_msg
         kf.update_filter(sensor_data);
         curr_t = t;
     }
+    first_sensor_received = true;
+
+    if  (!kf.is_inited())
+    {
+        return;
+    }
 
     Eigen::Matrix<double, EKF_STATE_SIZE,1> kf_state = kf.get_state();
+    Eigen::Quaterniond kf_orientation = kf.get_orientation();
 
      // 发布滤波后的 path
     filterd_path.header.stamp = ros::Time::now();
@@ -158,10 +164,10 @@ void sensor_callback(const sensor_msgs::Imu::ConstPtr& imu_msg, const sensor_msg
     pose.pose.position.x = kf_state[0]; 
     pose.pose.position.y = kf_state[1]; 
     pose.pose.position.z = kf_state[2]; 
-    pose.pose.orientation.x = sensor_data.root_quat.x();
-    pose.pose.orientation.y = sensor_data.root_quat.y();
-    pose.pose.orientation.z = sensor_data.root_quat.z();
-    pose.pose.orientation.w = sensor_data.root_quat.w();
+    pose.pose.orientation.x = kf_orientation.x();
+    pose.pose.orientation.y = kf_orientation.y();
+    pose.pose.orientation.z = kf_orientation.z();
+    pose.pose.orientation.w = kf_orientation.w();
 
     filterd_path.poses.push_back(pose);
 
@@ -178,20 +184,27 @@ void sensor_callback(const sensor_msgs::Imu::ConstPtr& imu_msg, const sensor_msg
 
     filterd_pos_msg.pose.pose = pose.pose;
 
-    filterd_pos_msg.pose.pose.orientation.x = sensor_data.root_quat.x();
-    filterd_pos_msg.pose.pose.orientation.y = sensor_data.root_quat.y();
-    filterd_pos_msg.pose.pose.orientation.z = sensor_data.root_quat.z();
-    filterd_pos_msg.pose.pose.orientation.w = sensor_data.root_quat.w();
+    filterd_pos_msg.pose.pose.orientation.x = kf_orientation.x();
+    filterd_pos_msg.pose.pose.orientation.y = kf_orientation.y();
+    filterd_pos_msg.pose.pose.orientation.z = kf_orientation.z();
+    filterd_pos_msg.pose.pose.orientation.w = kf_orientation.w();
 
     filterd_odom_pub.publish(filterd_pos_msg);
 
-    first_sensor_received = true;
+
     return;
 }
 
 // 处理pose和twist消息的回调函数
 void geometry_callback(const geometry_msgs::PoseStamped::ConstPtr& poseMsg, const geometry_msgs::TwistStamped::ConstPtr& twistMsg)
 { 
+    Eigen::Matrix<double, 3, 1> opti_pos = Eigen::Matrix<double, 3, 1> (poseMsg->pose.position.x, poseMsg->pose.position.y, poseMsg->pose.position.z);
+    Eigen::Quaterniond opti_orientation = Eigen::Quaterniond(poseMsg->pose.orientation.w, poseMsg->pose.orientation.x, poseMsg->pose.orientation.y, poseMsg->pose.orientation.z);
+
+    if ( !kf.is_inited() && first_sensor_received == true) {
+        kf.init_filter(sensor_data, opti_pos,opti_orientation);
+    }
+    
     // 发布path消息到pub_path话题
     truth_path.header = poseMsg->header;
     truth_path.header.frame_id = "world";
