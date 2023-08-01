@@ -4,6 +4,7 @@
 #include <message_filters/synchronizer.h>
 #include <message_filters/sync_policies/exact_time.h>
 #include <message_filters/sync_policies/approximate_time.h>
+#include <message_filters/time_synchronizer.h>
 
 #include <ros/console.h>
 #include <sensor_msgs/Imu.h>
@@ -16,6 +17,8 @@
 #include <tf2/LinearMath/Quaternion.h>
 
 #include "kalmanFilter/basicEKF.h"
+#include "utils/utility.h"
+
 BasicEKF kf;
 SensorData sensor_data;
 
@@ -27,6 +30,8 @@ ros::Publisher filterd_imu_pub;
 ros::Publisher filterd_joint_pub;
 ros::Publisher filterd_odom_pub;
 ros::Publisher filterd_path_pub;
+geometry_msgs::PoseStamped estimated_pose;
+geometry_msgs::TwistStamped estimated_twist;
 
 ros::Publisher pub_truth_path;
 ros::Publisher pub_truth_odometry;
@@ -36,7 +41,7 @@ nav_msgs::Path truth_path;
 nav_msgs::Odometry truth_odometry;
 
 nav_msgs::Path filterd_path;
-nav_msgs::Odometry filterd_pos_msg;
+nav_msgs::Odometry filterd_odom_msg;
 
 void sensor_callback(const sensor_msgs::Imu::ConstPtr &imu_msg, const sensor_msgs::JointState::ConstPtr &joint_msg);
 void geometry_callback(const geometry_msgs::PoseStamped::ConstPtr& poseMsg, const geometry_msgs::TwistStamped::ConstPtr& twistMsg);
@@ -85,12 +90,8 @@ int main(int argc, char *argv[])
     /********************************************************************************************************************************/
 
     /* publishers */
-    // filterd_imu_pub = n.advertise<sensor_msgs::Imu>("/a1_filterd_imu", 30);
-    // filterd_joint_pub = n.advertise<sensor_msgs::JointState>("/a1_filterd_joint", 30);
     filterd_path_pub = n.advertise<nav_msgs::Path>("/filterd_path", 1000);
     filterd_odom_pub = n.advertise<nav_msgs::Odometry>("/filterd_odom", 1000);
-
-    // registerPub(n);
 
     pub_truth_path = n.advertise<nav_msgs::Path>("truth_path", 1000);
     pub_truth_odometry = n.advertise<nav_msgs::Odometry>("truth_odometry", 1000);
@@ -102,8 +103,12 @@ int main(int argc, char *argv[])
 }
 
 
+
 void sensor_callback(const sensor_msgs::Imu::ConstPtr& imu_msg, const sensor_msgs::JointState::ConstPtr& joint_msg) 
 {
+    // 获取代码开始时间戳
+    ros::Time start_time = ros::Time::now();
+
     double t = imu_msg->header.stamp.toSec();
 
     Eigen::Vector3d acc = Eigen::Vector3d(imu_msg->linear_acceleration.x, imu_msg->linear_acceleration.y, imu_msg->linear_acceleration.z);
@@ -144,6 +149,17 @@ void sensor_callback(const sensor_msgs::Imu::ConstPtr& imu_msg, const sensor_msg
         kf.update_filter(sensor_data);
         curr_t = t;
     }
+    // 获取代码结束时间戳
+    ros::Time end_time = ros::Time::now();
+    // 计算代码的运行时间
+    ros::Duration duration = end_time - start_time;
+    double runtime = duration.toSec()*1000;
+    if(runtime != 0)
+    {
+        ROS_INFO("runtime: %.6f ms",runtime );
+    }
+
+
     first_sensor_received = true;
 
     if  (!kf.is_inited())
@@ -158,39 +174,41 @@ void sensor_callback(const sensor_msgs::Imu::ConstPtr& imu_msg, const sensor_msg
     filterd_path.header.stamp = ros::Time::now();
     filterd_path.header.frame_id = "world";
 
-    geometry_msgs::PoseStamped pose;
-    pose.header.stamp = filterd_path.header.stamp;
 
-    pose.pose.position.x = kf_state[0]; 
-    pose.pose.position.y = kf_state[1]; 
-    pose.pose.position.z = kf_state[2]; 
-    pose.pose.orientation.x = kf_orientation.x();
-    pose.pose.orientation.y = kf_orientation.y();
-    pose.pose.orientation.z = kf_orientation.z();
-    pose.pose.orientation.w = kf_orientation.w();
+    estimated_pose.header.stamp = filterd_path.header.stamp;
 
-    filterd_path.poses.push_back(pose);
+    estimated_pose.pose.position.x = kf_state[0]; 
+    estimated_pose.pose.position.y = kf_state[1]; 
+    estimated_pose.pose.position.z = kf_state[2]; 
+    estimated_pose.pose.orientation.x = kf_orientation.x();
+    estimated_pose.pose.orientation.y = kf_orientation.y();
+    estimated_pose.pose.orientation.z = kf_orientation.z();
+    estimated_pose.pose.orientation.w = kf_orientation.w();
+
+    filterd_path.poses.push_back(estimated_pose);
 
     filterd_path_pub.publish(filterd_path);
+
+
+    estimated_twist.twist.linear.x = kf_state[3];
+    estimated_twist.twist.linear.y = kf_state[4];
+    estimated_twist.twist.linear.z = kf_state[5];
     
     // 发布滤波后的 odometry
-    filterd_pos_msg.header.stamp = filterd_path.header.stamp;
-    filterd_pos_msg.header.frame_id = "world";
-    filterd_pos_msg.child_frame_id = "world";
+    filterd_odom_msg.header.stamp = filterd_path.header.stamp;
+    filterd_odom_msg.header.frame_id = "world";
+    filterd_odom_msg.child_frame_id = "world";
 
-    filterd_pos_msg.twist.twist.linear.x = kf_state[3];
-    filterd_pos_msg.twist.twist.linear.y = kf_state[4];
-    filterd_pos_msg.twist.twist.linear.z = kf_state[5];
+    filterd_odom_msg.twist.twist= estimated_twist.twist;
 
-    filterd_pos_msg.pose.pose = pose.pose;
+    filterd_odom_msg.pose.pose = estimated_pose.pose;
 
-    filterd_pos_msg.pose.pose.orientation.x = kf_orientation.x();
-    filterd_pos_msg.pose.pose.orientation.y = kf_orientation.y();
-    filterd_pos_msg.pose.pose.orientation.z = kf_orientation.z();
-    filterd_pos_msg.pose.pose.orientation.w = kf_orientation.w();
+    filterd_odom_msg.pose.pose.orientation.x = kf_orientation.x();
+    filterd_odom_msg.pose.pose.orientation.y = kf_orientation.y();
+    filterd_odom_msg.pose.pose.orientation.z = kf_orientation.z();
+    filterd_odom_msg.pose.pose.orientation.w = kf_orientation.w();
 
-    filterd_odom_pub.publish(filterd_pos_msg);
-
+    filterd_odom_pub.publish(filterd_odom_msg);
 
     return;
 }
@@ -198,13 +216,23 @@ void sensor_callback(const sensor_msgs::Imu::ConstPtr& imu_msg, const sensor_msg
 // 处理pose和twist消息的回调函数
 void geometry_callback(const geometry_msgs::PoseStamped::ConstPtr& poseMsg, const geometry_msgs::TwistStamped::ConstPtr& twistMsg)
 { 
-    Eigen::Matrix<double, 3, 1> opti_pos = Eigen::Matrix<double, 3, 1> (poseMsg->pose.position.x, poseMsg->pose.position.y, poseMsg->pose.position.z);
-    Eigen::Quaterniond opti_orientation = Eigen::Quaterniond(poseMsg->pose.orientation.w, poseMsg->pose.orientation.x, poseMsg->pose.orientation.y, poseMsg->pose.orientation.z);
-
+    
+    // 初始化对齐坐标系
     if ( !kf.is_inited() && first_sensor_received == true) {
+        Eigen::Matrix<double, 3, 1> opti_pos = Eigen::Matrix<double, 3, 1> (poseMsg->pose.position.x, poseMsg->pose.position.y, poseMsg->pose.position.z);
+        Eigen::Quaterniond opti_orientation = Eigen::Quaterniond(poseMsg->pose.orientation.w, poseMsg->pose.orientation.x, poseMsg->pose.orientation.y, poseMsg->pose.orientation.z);
         kf.init_filter(sensor_data, opti_pos,opti_orientation);
     }
-    
+
+    // 计算并打印位置误差、姿态误差和速度误差
+    PositionError position_error = Utility::calculatePositionError(*poseMsg, estimated_pose);
+    OrientationError orientation_error = Utility::calculateOrientationError(*poseMsg, estimated_pose);
+    double velocity_error = Utility::calculateVelocityError(*twistMsg, estimated_twist);
+
+    ROS_INFO("position error (X, Y, Z) m: %.4f, %.4f, %.4f", position_error.x, position_error.y, position_error.z);
+    ROS_INFO("attitude error (Roll, Pitch, Yaw) ard: %.4f, %.4f, %.4f", orientation_error.roll, orientation_error.pitch, orientation_error.yaw);
+    ROS_INFO("speed error: %.4f m/s", velocity_error);
+
     // 发布path消息到pub_path话题
     truth_path.header = poseMsg->header;
     truth_path.header.frame_id = "world";

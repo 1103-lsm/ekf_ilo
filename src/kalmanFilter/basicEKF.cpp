@@ -61,17 +61,17 @@ void BasicEKF::init_filter(SensorData data, Eigen::Vector3d _init_pos,Eigen::Qua
 
     // 预测协方差矩阵Q 固定
     Q.setIdentity();
-    Q.block<3,3>(0,0) = PROCESS_NOISE_PIMU*eye3;               // position transition
-    Q.block<3,3>(3,3) = PROCESS_NOISE_VIMU*eye3;               // velocity transition
+    Q.block<3,3>(0,0) = PROCESS_NOISE_PIMU*eye3;              
+    Q.block<3,3>(3,3) = PROCESS_NOISE_VIMU*eye3;             
     for (int i=0; i<NUM_LEG; ++i) {
-        Q.block<3,3>(6+i*3,6+i*3) = PROCESS_NOISE_PFOOT*eye3;  // foot position transition
+        Q.block<3,3>(6+i*3,6+i*3) = PROCESS_NOISE_PFOOT*eye3;  
     }
     // 测量协防差矩阵R 固定
     R.setIdentity();
     for (int i=0; i<NUM_LEG; ++i) {
-        R.block<3,3>(i*3,i*3) = SENSOR_NOISE_PIMU_REL_FOOT*eye3;                        // fk estimation
-        R.block<3,3>(NUM_LEG*3+i*3,NUM_LEG*3+i*3) = SENSOR_NOISE_VIMU_REL_FOOT*eye3;      // vel estimation
-        R(NUM_LEG*6+i,NUM_LEG*6+i) = SENSOR_NOISE_ZFOOT;                               // height z estimation
+        R.block<3,3>(i*3,i*3) = SENSOR_NOISE_PIMU_REL_FOOT*eye3;                       
+        R.block<3,3>(NUM_LEG*3+i*3,NUM_LEG*3+i*3) = SENSOR_NOISE_VIMU_REL_FOOT*eye3;     
+        R(NUM_LEG*6+i,NUM_LEG*6+i) = SENSOR_NOISE_ZFOOT;                              
     }
 
     A.setIdentity();
@@ -110,10 +110,10 @@ void BasicEKF::update_filter(SensorData data) {
     // 降低摆动足对运动学的影响
     for (int i = 0; i < NUM_LEG; ++i) 
     { 
-        Q.block<3, 3>(6 + i * 3, 6 + i * 3) = (1 + (1 - data.plan_contacts[i]) * 1e3) * data.dt * PROCESS_NOISE_PFOOT * eye3;  // foot position transition
-        R.block<3, 3>(i * 3, i * 3) = (1 + (1 - data.plan_contacts[i]) * 1e3) * SENSOR_NOISE_PIMU_REL_FOOT * eye3;                       // fk estimation
-        R.block<3, 3>(NUM_LEG * 3 + i * 3, NUM_LEG * 3 + i * 3) = (1 + (1 - data.plan_contacts[i]) * 1e3) * SENSOR_NOISE_VIMU_REL_FOOT * eye3;      // vel estimation
-        R(NUM_LEG * 6 + i, NUM_LEG * 6 + i) = (1 + (1 - data.plan_contacts[i]) * 1e3) * SENSOR_NOISE_ZFOOT;       // height z estimation
+        Q.block<3, 3>(6 + i * 3, 6 + i * 3) = (1 + (1 - data.plan_contacts[i]) * 1e3) * data.dt * PROCESS_NOISE_PFOOT * eye3;  
+        R.block<3, 3>(i * 3, i * 3) = (1 + (1 - data.plan_contacts[i]) * 1e3) * SENSOR_NOISE_PIMU_REL_FOOT * eye3;             
+        R.block<3, 3>(NUM_LEG * 3 + i * 3, NUM_LEG * 3 + i * 3) = (1 + (1 - data.plan_contacts[i]) * 1e3) * SENSOR_NOISE_VIMU_REL_FOOT * eye3;      
+        R(NUM_LEG * 6 + i, NUM_LEG * 6 + i) = (1 + (1 - data.plan_contacts[i]) * 1e3) * SENSOR_NOISE_ZFOOT; 
     }
 
     xhat = A*x + B*u ;

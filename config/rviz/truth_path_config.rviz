@@ -97,7 +97,7 @@ Visualization Manager:
           Scale: 1
           Value: true
         Value: true
-      Enabled: false
+      Enabled: true
       Keep: 1000
       Name: Odometry
       Position Tolerance: 0.10000000149011612
@@ -114,7 +114,7 @@ Visualization Manager:
         Value: Arrow
       Topic: /ilo/truth_odometry
       Unreliable: false
-      Value: false
+      Value: true
     - Class: rviz/TF
       Enabled: false
       Filter (blacklist): ""
@@ -149,7 +149,7 @@ Visualization Manager:
           Scale: 1
           Value: true
         Value: true
-      Enabled: false
+      Enabled: true
       Keep: 1000
       Name: Odometry
       Position Tolerance: 0.10000000149011612
@@ -166,7 +166,7 @@ Visualization Manager:
         Value: Arrow
       Topic: /filterd_odom
       Unreliable: false
-      Value: false
+      Value: true
     - Alpha: 1
       Buffer Length: 1
       Class: rviz/Path

@@ -11,10 +11,8 @@
 
 #include "KF.hpp"
 #include "../legKinematics/kinematics.h"
-
 #include "../utils/utility.h"
 
-// state estimator parameters
 #define EKF_STATE_SIZE 18   // 状态变量维度
 #define MEAS_SIZE 28        // 观测变量维度
 #define PROCESS_NOISE_PIMU 0.01 // 位置预测协方差
@@ -46,25 +44,25 @@ private:
     Eigen::Matrix<double, EKF_STATE_SIZE, EKF_STATE_SIZE> Q; // 状态转移协方差矩阵
 
     // observation 
-    // 0 1 2   FR pos residual 世界坐标系下，质心位置和足端位置之差
-    // 3 4 5   FL pos residual
-    // 6 7 8   RR pos residual
-    // 9 10 11 RL pos residual
-    // 12 13 14 vel residual from FL 全局坐标系下的速度
-    // 15 16 17 vel residual from FR
-    // 18 19 20 vel residual from RL
-    // 21 22 23 vel residual from RR
-    // 24 25 26 27 foot height 足端的高度 
+    // 0 1 2    世界坐标系下，质心位置和足端位置之差
+    // 3 4 5   
+    // 6 7 8  
+    // 9 10 11 
+    // 12 13 14  全局坐标系下的速度
+    // 15 16 17 
+    // 18 19 20 
+    // 21 22 23 
+    // 24 25 26 27 足端的高度 
     Eigen::Matrix<double, MEAS_SIZE, 1> z; //  实际测量
     Eigen::Matrix<double, MEAS_SIZE, 1> zhat; // 测量矩阵×状态先验估计
-    Eigen::Matrix<double, MEAS_SIZE, 1> error_z; // estimated observation
+    Eigen::Matrix<double, MEAS_SIZE, 1> error_z; 
     Eigen::Matrix<double, MEAS_SIZE, 1> Serror_y; // S^-1*error_z
     Eigen::Matrix<double, MEAS_SIZE, EKF_STATE_SIZE> H; // 测量矩阵
     Eigen::Matrix<double, MEAS_SIZE, EKF_STATE_SIZE> SC; // S^-1*H
     Eigen::Matrix<double, MEAS_SIZE, MEAS_SIZE> R; // 测量噪声协方差矩阵
-    // helper matrices
+   
     Eigen::Matrix<double, 3, 3> eye3; // 3x3 单位矩阵
-    Eigen::Matrix<double, MEAS_SIZE, MEAS_SIZE> S; // 创新（或预拟合残差）协方差 Innovation (or pre-fit residual) covariance
+    Eigen::Matrix<double, MEAS_SIZE, MEAS_SIZE> S;
     Eigen::Matrix<double, EKF_STATE_SIZE, MEAS_SIZE> K; // 卡尔曼增益 
 
     Eigen::Matrix3d rotation_matrix_diff;

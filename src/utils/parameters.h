@@ -1,12 +1,3 @@
-/*******************************************************
- * Copyright (C) 2019, Aerial Robotics Group, Hong Kong University of Science and Technology
- *
- * This file is part of VINS.
- *
- * Licensed under the GNU General Public License v3.0;
- * you may not use this file except in compliance with the License.
- *******************************************************/
-
 #pragma once
 
 #include <ros/ros.h>
@@ -29,7 +20,6 @@ void readParameters(std::string config_file);
 
 #define NUM_OF_LEG 4
 #define NUM_OF_DOF 12
-// parameters in the leg kinematics  and imu_leg_integration_base 
 #define RHO_OPT_SIZE 1  // 单个关节参数的维度大小
 #define TOTAL_RHO_OPT_SIZE 4 // 4xRHO_OPT_SIZE 所有关节参数的总维度大小
 #define RHO_FIX_SIZE 4  // 固定关节参数的维度大小

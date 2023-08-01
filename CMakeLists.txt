@@ -39,7 +39,6 @@ add_library(ilo_lib
 
     src/utils/parameters.cpp
     src/utils/utility.cpp
-    src/utils/visualization.cpp
 )
 
 target_link_libraries(ilo_lib
